@@ -12,30 +12,43 @@ export default function AuthCallback() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleEmailConfirmation = async () => {
+    // Add a small delay to ensure cookies are set properly
+    const timer = setTimeout(async () => {
       try {
-        // This handles the callback by automatically exchanging the code
-        // for a session using the Next.js API route
-        const { data, error } = await supabase.auth.getSession();
+        // Get the current session
+        const { data, error: sessionError } = await supabase.auth.getSession();
 
-        if (error) throw error;
+        if (sessionError) throw sessionError;
 
         if (data?.session) {
           setMessage('Authentication successful! Redirecting...');
 
-          // Check if the user already has a restaurant
-          const { data: restaurants, error: restaurantError } = await supabase
-            .from('restaurants')
-            .select('id')
-            .limit(1);
+          // Get the current user ID
+          const userId = data.session.user.id;
+          console.log('User authenticated:', userId);
 
-          if (restaurantError) throw restaurantError;
+          try {
+            // Check if the current user has a restaurant
+            const { data: restaurants, error: restaurantError } = await supabase
+              .from('restaurants')
+              .select('id')
+              .eq('user_id', userId)
+              .limit(1);
 
-          // Redirect based on whether restaurant exists
-          if (restaurants && restaurants.length > 0) {
-            router.push('/dashboard');
-          } else {
-            // First login, redirect to restaurant setup
+            if (restaurantError) throw restaurantError;
+
+            console.log('Restaurants for user:', restaurants);
+
+            // Redirect based on whether restaurant exists for this user
+            if (restaurants && restaurants.length > 0) {
+              router.push('/dashboard');
+            } else {
+              // First login, redirect to restaurant setup
+              router.push('/restaurant-setup');
+            }
+          } catch (queryError) {
+            console.error('Error checking restaurants:', queryError);
+            // If there's an error checking restaurants, default to setup
             router.push('/restaurant-setup');
           }
         } else {
@@ -52,9 +65,9 @@ export default function AuthCallback() {
           router.push('/signin');
         }, 3000);
       }
-    };
+    }, 1000); // 1-second delay
 
-    handleEmailConfirmation();
+    return () => clearTimeout(timer);
   }, [supabase, router]);
 
   return (
