@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface FormData {
   email: string;
@@ -21,12 +23,24 @@ interface FormData {
 }
 
 const SignIn = () => {
+  const router = useRouter();
+  const supabase = createClientComponentClient();
+  const searchParams = useSearchParams();
+  const registered = searchParams.get('registered');
+
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (registered === 'true') {
+      setSuccessMessage('Account created successfully! Please sign in.');
+    }
+  }, [registered]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,17 +48,28 @@ const SignIn = () => {
     setError(null);
 
     try {
-      // TODO: Implement authentication logic
-      console.log('Sign in attempt with:', formData);
+      // Sign in with Supabase Auth
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (signInError) throw signInError;
 
       // Handle successful sign in
-      // Redirect to dashboard or home page
-    } catch (err) {
+      router.push('/dashboard'); // Redirect to dashboard or home page
+    } catch (err: any) {
       console.error('Sign in error:', err);
-      setError('Invalid email or password');
+
+      // Handle specific error cases
+      if (err.message.includes('Invalid login credentials')) {
+        setError('Invalid email or password');
+      } else if (err.message.includes('Email not confirmed')) {
+        setError('Please confirm your email address before signing in');
+      } else {
+        setError(err.message || 'Failed to sign in. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -79,6 +104,13 @@ const SignIn = () => {
               Enter your email and password to access your account
             </CardDescription>
           </CardHeader>
+
+          {successMessage && (
+            <div className="mx-6 mb-2 p-3 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm rounded">
+              {successMessage}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -95,7 +127,14 @@ const SignIn = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    Forgot password?
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   name="password"
@@ -107,7 +146,7 @@ const SignIn = () => {
                 />
               </div>
               {error && (
-                <div className="text-sm text-red-500 dark:text-red-400">
+                <div className="text-sm text-red-500 dark:text-red-400 p-2 bg-red-50 dark:bg-red-900/20 rounded">
                   {error}
                 </div>
               )}

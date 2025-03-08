@@ -2,25 +2,39 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useRouter } from 'next/navigation';
 
 interface FormData {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   confirmPassword: string;
 }
 
 const SignUp = () => {
+  const router = useRouter();
+  const supabase = createClientComponentClient();
+
   const [formData, setFormData] = useState<FormData>({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,16 +51,38 @@ const SignUp = () => {
     }
 
     try {
-      // TODO: Implement registration logic
-      console.log('Sign up attempt with:', formData);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Handle successful registration
-      // Redirect to dashboard or home page
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+      // Sign up with Supabase Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            // These values will be available in the JWT and trigger the handle_new_user() function
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          },
+        },
+      });
+
+      if (signUpError) throw signUpError;
+
+      // Update the users table directly for immediate access
+      // This is because the trigger might have only created placeholder values
+      const { error: profileError } = await supabase
+        .from('users')
+        .update({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+        })
+        .eq('id', data.user?.id);
+
+      if (profileError) throw profileError;
+
+      // Redirect to login page or confirmation page
+      router.push('/signin?registered=true');
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -54,9 +90,9 @@ const SignUp = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -66,13 +102,14 @@ const SignUp = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
+        className="w-full max-w-md">
         <Card className="shadow-lg">
           <CardHeader className="space-y-1">
             <div className="flex items-center justify-between">
               <CardTitle className="text-2xl font-bold">Sign up</CardTitle>
-              <Link href="/" className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+              <Link
+                href="/"
+                className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                 Back to home
               </Link>
             </div>
@@ -82,18 +119,33 @@ const SignUp = () => {
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
-                  placeholder="John Doe"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  disabled={isLoading}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    name="firstName"
+                    type="text"
+                    placeholder="John"
+                    required
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    type="text"
+                    placeholder="Doe"
+                    required
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -139,19 +191,14 @@ const SignUp = () => {
               )}
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Creating account...' : 'Create account'}
               </Button>
               <div className="text-sm text-center text-slate-600 dark:text-slate-400">
                 Already have an account?{' '}
                 <Link
                   href="/signin"
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                >
+                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                   Sign in
                 </Link>
               </div>
