@@ -5,10 +5,6 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-/**
- * This component handles redirects after email verification
- * Place it at /auth/callback in your app
- */
 export default function AuthCallback() {
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -18,51 +14,32 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
-        // Get the auth URL for the callback
-        const urlParams = new URLSearchParams(
-          window.location.hash.substring(1)
-        );
-        const accessToken = urlParams.get('access_token');
-        const refreshToken = urlParams.get('refresh_token');
-        const type = urlParams.get('type');
+        // This handles the callback by automatically exchanging the code
+        // for a session using the Next.js API route
+        const { data, error } = await supabase.auth.getSession();
 
-        if (accessToken && refreshToken && type === 'email_confirmation') {
-          // Handle email confirmation
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
+        if (error) throw error;
 
-          if (error) throw error;
+        if (data?.session) {
+          setMessage('Authentication successful! Redirecting...');
 
-          // Check if this is the first login
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
+          // Check if the user already has a restaurant
+          const { data: restaurants, error: restaurantError } = await supabase
+            .from('restaurants')
+            .select('id')
+            .limit(1);
 
-          if (user) {
-            setMessage('Authentication successful! Redirecting...');
+          if (restaurantError) throw restaurantError;
 
-            // Check if the user already has a restaurant
-            const { data: restaurants, error: restaurantError } = await supabase
-              .from('restaurants')
-              .select('id')
-              .limit(1);
-
-            if (restaurantError) throw restaurantError;
-
-            // Redirect based on whether restaurant exists
-            if (restaurants && restaurants.length > 0) {
-              router.push('/dashboard');
-            } else {
-              // First login, redirect to restaurant setup
-              router.push('/restaurant-setup');
-            }
+          // Redirect based on whether restaurant exists
+          if (restaurants && restaurants.length > 0) {
+            router.push('/dashboard');
           } else {
-            throw new Error('User not found');
+            // First login, redirect to restaurant setup
+            router.push('/restaurant-setup');
           }
         } else {
-          throw new Error('Invalid authentication parameters');
+          throw new Error('No session found');
         }
       } catch (err) {
         console.error('Error during auth callback:', err);
