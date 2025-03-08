@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,8 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+
+import { useToast } from '@/components/ui/use-toast';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
+
 
 interface FormData {
   firstName: string;
@@ -27,8 +31,8 @@ interface FormData {
 
 const SignUp = () => {
   const router = useRouter();
+  const { toast } = useToast();
   const supabase = createClientComponentClient();
-
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -97,7 +101,7 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -113,7 +117,7 @@ const SignUp = () => {
                 Back to home
               </Link>
             </div>
-            <CardDescription>
+            <CardDescription className="text-slate-600 dark:text-slate-400">
               Create an account to start using our service
             </CardDescription>
           </CardHeader>
@@ -158,10 +162,16 @@ const SignUp = () => {
                   value={formData.email}
                   onChange={handleChange}
                   disabled={isLoading}
+                  className="transition-shadow duration-200 focus:shadow-md"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="space-y-2"
+              >
+                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
                 <Input
                   id="password"
                   name="password"
@@ -170,10 +180,16 @@ const SignUp = () => {
                   value={formData.password}
                   onChange={handleChange}
                   disabled={isLoading}
+                  className="transition-shadow duration-200 focus:shadow-md"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="space-y-2"
+              >
+                <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</Label>
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -182,12 +198,17 @@ const SignUp = () => {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   disabled={isLoading}
+                  className="transition-shadow duration-200 focus:shadow-md"
                 />
-              </div>
+              </motion.div>
               {error && (
-                <div className="text-sm text-red-500 dark:text-red-400">
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg"
+                >
                   {error}
-                </div>
+                </motion.div>
               )}
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
@@ -198,6 +219,7 @@ const SignUp = () => {
                 Already have an account?{' '}
                 <Link
                   href="/signin"
+
                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                   Sign in
                 </Link>
