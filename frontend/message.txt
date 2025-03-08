@@ -1,0 +1,125 @@
+## Points Clés
+- Il semble probable que l’on puisse utiliser Hylé pour prouver la présence d’une personne dans un restaurant via un QR code ou un lien, sans révéler d’informations sensibles, en s’appuyant sur des preuves à divulgation nulle de connaissance (zkp).
+- Le processus implique que le restaurant génère un message signé à la fin du service, que le client scanne, et utilise Hylé pour créer une preuve vérifiable.
+- Une fois la présence prouvée, le client peut laisser une review immédiatement ou plus tard, en toute confidentialité.
+
+### Configuration du Système
+Le restaurant fournit un QR code ou un lien à la fin du service, contenant un message signé avec sa clé privée, incluant un ID de visite et un horodatage. Cela garantit que seul un client présent peut obtenir ce message.
+
+### Génération de la Preuve
+Le client utilise Hylé pour générer une preuve zkp, prouvant qu’il possède un message signé par le restaurant et que la visite est récente (par exemple, dans les 30 derniers jours), sans dévoiler de détails.
+
+### Soumission de la Review
+Une fois la preuve générée, le client peut soumettre sa review à tout moment, et la plateforme vérifie la preuve pour confirmer la présence avant d’accepter la review.
+
+### Détail Inattendu
+Une chose intéressante, c’est que ce système permet au client de choisir quand laisser une review, offrant une flexibilité tout en maintenant la confidentialité grâce aux zkp.
+
+---
+
+## Note Détaillée
+
+### Introduction
+Ce rapport explore en détail comment justifier la présence d’une personne dans un restaurant en utilisant les preuves à divulgation nulle de connaissance (zkp) de Hylé, sans utiliser prove.email, en s’appuyant sur un QR code ou un lien fourni à la fin du service. L’objectif est de permettre aux clients de prouver leur présence pour laisser une review, tout en préservant leur vie privée. Basé sur une analyse des fonctionnalités probables de Hylé et des concepts de zkp, nous décrivons un processus étape par étape, en tenant compte des implications techniques et pratiques.
+
+### Contexte et Objectifs
+L’objectif est de prouver qu’une personne était physiquement présente dans un restaurant, sans révéler d’informations sensibles comme l’heure exacte de la visite ou d’autres détails. Le restaurant génère un QR code ou un lien à la fin du service, que le client peut utiliser pour prouver sa présence via Hylé’s zkp. Cela s’inspire de systèmes de vérification de présence, mais adapté au contexte du restaurant, où le client peut choisir de laisser une review immédiatement ou plus tard.
+
+### Analyse des Besoins
+Pour justifier la présence, nous avons besoin d’un mécanisme qui :
+- Confirme physiquement la présence au restaurant via un QR code ou un lien.
+- Utilise des zkp pour préserver la vie privée, ne révélant que la présence récente, pas les détails.
+- Est pratique pour les utilisateurs et vérifiable par une tierce partie, comme une plateforme de reviews.
+- Permet au client de soumettre une review à tout moment après avoir prouvé sa présence.
+
+### Processus Étape par Étape
+Voici le processus détaillé pour justifier la présence en utilisant Hylé’s zkp, basé sur la technologie de cryptographie programmable :
+
+#### 1. Configuration du Restaurant
+- **Générer une Paire de Clés :** Le restaurant génère une paire de clés publique et privée pour signer les messages. La clé publique est partagée avec la plateforme de reviews pour la vérification.
+- **Créer un Message Signé :** À la fin du service, le restaurant génère un message contenant :
+  - Un ID de visite unique (par exemple, un numéro de table ou un ID aléatoire).
+  - Un horodatage (par exemple, en secondes depuis l’époque Unix).
+- Le restaurant signe ce message avec sa clé privée, utilisant probablement une signature ECDSA (secp384r1), comme mentionné dans les idées de Hylé.
+- Le message signé (message + signature) est encodé dans un QR code ou un lien, qui est fourni au client, par exemple via une facture ou un écran.
+
+#### 2. Interaction du Client
+- **Scanner le QR Code ou Cliquer sur le Lien :** Le client utilise son appareil (smartphone ou ordinateur) pour scanner le QR code ou cliquer sur le lien, ce qui lui donne accès au message signé.
+- **Stocker les Données :** Le client stocke le message signé de manière sécurisée sur son appareil, par exemple dans le stockage local du navigateur ou une application dédiée. Le message pourrait être au format JSON, comme :
+  ```json
+  {
+    "visit_id": "abc123",
+    "timestamp": 1730984240
+  }
+  ```
+  Avec la signature séparée, encodée en base64, par exemple.
+
+#### 3. Génération de la Preuve ZKP
+- **Utiliser Hylé’s SDK :** Le client utilise l’application web (le front-end étant déjà fait) pour sélectionner le message signé stocké. Il utilise Hylé’s SDK pour générer une preuve à divulgation nulle de connaissance qui affirme :
+  - Il existe un message \( M \) et une signature \( S \), telle que \( S \) est une signature valide de \( M \) par la clé privée du restaurant (vérifiable avec la clé publique).
+  - Le message \( M \) contient un horodatage \( T \), et \( T \) est dans une plage récente, par exemple, entre \( \text{Date actuelle} - 30 \times 24 \times 60 \times 60 \) et \( \text{Date actuelle} \) (soit les 30 derniers jours).
+- Cette preuve est générée sans révéler \( M \), \( S \), ni \( T \), utilisant des techniques comme les preuves de plage (range proofs) pour l’horodatage.
+- Exemple hypothétique d’appel à Hylé’s SDK :
+  ```javascript
+  const proof = await generateProof({
+    message: signedData.message,
+    signature: signedData.signature,
+    public_key: restaurantPublicKey,
+    time_range: [Date.now() - 30*24*60*60*1000, Date.now()]
+  });
+  ```
+  La preuve est un objet opaque qui peut être envoyé à la plateforme.
+
+#### 4. Soumission de la Review
+- **Formulaire de Review :** Le client remplit le formulaire de review dans l’application web, incluant son texte de review, et joint la preuve générée.
+- **Envoi à la Plateforme :** La review et la preuve sont envoyées à la plateforme via une API, par exemple via une requête POST :
+  ```javascript
+  fetch('/api/submit-review', {
+    method: 'POST',
+    body: JSON.stringify({ review: "Great service!", proof: proofData })
+  });
+  ```
+- Le client peut faire cela immédiatement après avoir scanné le QR code ou à tout moment ultérieur, tant qu’il a le message signé.
+
+#### 5. Vérification de la Preuve
+- **Réception par la Plateforme :** La plateforme de reviews reçoit la review et la preuve.
+- **Vérification avec Hylé’s SDK :** La plateforme utilise Hylé’s SDK pour vérifier la preuve, en passant la preuve et la clé publique du restaurant :
+  ```javascript
+  const isValid = await verifyProof(proof, restaurantPublicKey);
+  ```
+- La vérification confirme :
+  - Que le client possède un message valide signé par le restaurant.
+  - Que l’horodatage est dans la plage récente, prouvant une présence récente.
+- **Accepter la Review :** Si la preuve est valide, la review est acceptée et enregistrée. Sinon, elle est rejetée.
+
+### Considérations Techniques et Pratiques
+- **Infrastructure Requise :** Le restaurant doit avoir un système pour générer des QR codes ou des liens avec des messages signés, ce qui pourrait être intégré à leur système de caisse ou de gestion. Cela nécessite une clé privée sécurisée et un moyen de générer des signatures ECDSA.
+- **Expérience Utilisateur :** Le client doit avoir une interface simple pour scanner le QR code, stocker les données, et générer la preuve. Le front-end étant déjà fait, cela inclut probablement un scanner QR et un formulaire de review.
+- **Sécurité :** Le message signé doit être stocké de manière sécurisée pour éviter les fuites ou le vol. Si quelqu’un vole le message, il pourrait générer une preuve, ce qui est un risque. Pour le mitiger, le message pourrait inclure un identifiant client (mais cela réduirait la vie privée).
+- **Performance :** Les zkp peuvent être intensives en calcul, surtout pour les preuves de plage. Hylé doit optimiser cela pour une utilisation mobile ou web.
+- **Prévention des Abus :** Pour éviter que le même message soit utilisé pour plusieurs reviews, la plateforme pourrait accepter plusieurs reviews, mais cela dépend de la politique. Une solution serait d’inclure un nonce unique dans la review, mais cela pourrait compliquer le système.
+
+### Implications pour la Vie Privée
+- **Avantages :** La preuve ne révèle que la présence récente, pas l’heure exacte, ni l’ID de visite, protégeant ainsi la vie privée du client.
+- **Risques :** Si la clé privée du restaurant est compromise, des attaquants pourraient générer de fausses preuves. Cela nécessite une gestion sécurisée des clés.
+- **Flexibilité :** Le client peut choisir quand laisser la review, offrant une expérience utilisateur flexible tout en maintenant la confidentialité.
+
+### Tableau Récapitulatif
+
+| **Étape**                  | **Description**                                                                 | **Responsable**         |
+|----------------------------|---------------------------------------------------------------------------------|-------------------------|
+| Configuration Restaurant   | Générer clé publique/privée, créer et signer message avec ID visite et horodatage | Restaurant              |
+| Fournir QR Code/Lien       | Encoder message signé dans QR code ou lien, donner au client à la fin du service | Restaurant              |
+| Interaction Client         | Client scanne QR code/clique lien, stocke message signé                         | Client                  |
+| Génération Preuve          | Client utilise Hylé pour générer preuve zkp de présence récente                 | Client                  |
+| Soumission Review          | Client soumet review avec preuve, immédiatement ou plus tard                    | Client                  |
+| Vérification Preuve        | Plateforme vérifie preuve avec clé publique, confirme présence                  | Plateforme (ex. reviews)|
+
+### Conclusion
+En suivant ce processus, on peut justifier la présence d’une personne dans un restaurant en utilisant les zkp de Hylé, via un QR code ou un lien, sans révéler d’informations sensibles. Le client peut prouver sa présence et laisser une review à tout moment, grâce à la flexibilité du système et à la confidentialité offerte par les zkp.
+
+---
+
+### Key Citations
+- [Hylé Grant Application Form Long Title](https://docs.google.com/forms/d/e/1FAIpQLSf5i2HNkeR3lHSljBdeeTR_0Xx4FsJc6zCb2MY2eBgz-EnbjQ/viewform?usp=sf_link)
+- [Hylé Telegram Group Access Point](https://t.me/hyle_org)

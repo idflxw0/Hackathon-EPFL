@@ -1,0 +1,169 @@
+-- 1. Create auth schema tables
+
+-- Users table
+CREATE TABLE public.users (
+  id UUID PRIMARY KEY DEFAULT auth.uid(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  
+  CONSTRAINT users_email_check CHECK (email ~* '^[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$')
+);
+
+-- Create a trigger to automatically update the updated_at field
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_users_updated_at
+BEFORE UPDATE ON public.users
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- 2. Create restaurants table
+CREATE TABLE public.restaurants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  address TEXT NOT NULL,
+  avg_rating NUMERIC(3,2) DEFAULT 0.0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
+);
+
+CREATE TRIGGER update_restaurants_updated_at
+BEFORE UPDATE ON public.restaurants
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- 3. Create reviews table
+CREATE TABLE public.reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  restaurant_id UUID NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  review_text TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+  
+  -- Each user can only leave one review per restaurant
+  UNIQUE(restaurant_id, user_id)
+);
+
+CREATE TRIGGER update_reviews_updated_at
+BEFORE UPDATE ON public.reviews
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- 4. Create function to update restaurant average rating
+CREATE OR REPLACE FUNCTION update_restaurant_rating()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.restaurants
+  SET avg_rating = (
+    SELECT ROUND(AVG(rating)::numeric, 2)
+    FROM public.reviews
+    WHERE restaurant_id = NEW.restaurant_id
+  )
+  WHERE id = NEW.restaurant_id;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers to update restaurant rating when reviews are added, updated, or deleted
+CREATE TRIGGER after_insert_review
+AFTER INSERT ON public.reviews
+FOR EACH ROW
+EXECUTE FUNCTION update_restaurant_rating();
+
+CREATE TRIGGER after_update_review
+AFTER UPDATE ON public.reviews
+FOR EACH ROW
+EXECUTE FUNCTION update_restaurant_rating();
+
+CREATE TRIGGER after_delete_review
+AFTER DELETE ON public.reviews
+FOR EACH ROW
+EXECUTE FUNCTION update_restaurant_rating();
+
+-- 5. Set up Row Level Security policies
+
+-- Enable RLS on all tables
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.restaurants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for users table
+-- Users can only view and edit their own profile
+CREATE POLICY "Users can view own profile" 
+ON public.users
+FOR SELECT
+USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" 
+ON public.users
+FOR UPDATE
+USING (auth.uid() = id);
+
+-- Restaurant policies
+-- Anyone can view restaurants
+CREATE POLICY "Anyone can view restaurants" 
+ON public.restaurants
+FOR SELECT
+TO authenticated, anon
+USING (true);
+
+-- Reviews policies
+-- Anyone can view reviews
+CREATE POLICY "Anyone can view reviews" 
+ON public.reviews
+FOR SELECT
+TO authenticated, anon
+USING (true);
+
+-- Users can insert their own reviews
+CREATE POLICY "Users can create reviews" 
+ON public.reviews
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own reviews
+CREATE POLICY "Users can update own reviews" 
+ON public.reviews
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- Users can delete their own reviews
+CREATE POLICY "Users can delete own reviews" 
+ON public.reviews
+FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- 6. Create function to automatically link users on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user() 
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, first_name, last_name, email)
+  VALUES (
+    new.id,
+    '',  -- Will be updated by user
+    '',  -- Will be updated by user
+    new.email
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger the function every time a user signs up
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
