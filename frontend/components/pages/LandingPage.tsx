@@ -1,11 +1,10 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import Header from "./comps/Header";
-import Footer from "./comps/Footer";
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { motion } from 'framer-motion';
+import Header from './comps/Header';
+import Footer from './comps/Footer';
 
 const LandingPage = () => {
   return (
@@ -18,12 +17,11 @@ const LandingPage = () => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
-              className="max-w-xl"
-            >
+              className="max-w-xl">
               <h1 className="text-4xl md:text-5xl font-bold mb-6">
                 Trust in Reviews,
                 <span className="text-blue-600 dark:text-blue-400">
-                  {" "}
+                  {' '}
                   Verified by Zero-Knowledge
                 </span>
               </h1>
@@ -44,8 +42,7 @@ const LandingPage = () => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="relative"
-            >
+              className="relative">
               <Card className="p-6 shadow-lg">
                 <div className="aspect-video bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg"></div>
               </Card>
@@ -61,19 +58,19 @@ const LandingPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
                 {
-                  title: "Visit & Scan",
+                  title: 'Visit & Scan',
                   description:
-                    "Visit a restaurant and scan the QR code provided after your meal.",
+                    'Visit a restaurant and scan the QR code provided after your meal.',
                 },
                 {
-                  title: "Generate Proof",
+                  title: 'Generate Proof',
                   description:
-                    "Create a zero-knowledge proof of your visit without revealing personal details.",
+                    'Create a zero-knowledge proof of your visit without revealing personal details.',
                 },
                 {
-                  title: "Share Review",
+                  title: 'Share Review',
                   description:
-                    "Submit your verified review that others can trust.",
+                    'Submit your verified review that others can trust.',
                 },
               ].map((step, index) => (
                 <motion.div
@@ -81,8 +78,7 @@ const LandingPage = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.2 }}
-                  className="text-center p-6"
-                >
+                  className="text-center p-6">
                   <div className="w-12 h-12 bg-blue-600 dark:bg-blue-500 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-4">
                     {index + 1}
                   </div>
