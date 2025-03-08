@@ -23,15 +23,19 @@ export default function AuthCallback() {
         if (data?.session) {
           setMessage('Authentication successful! Redirecting...');
 
-          // Check if the user already has a restaurant
+          // Get the current user ID
+          const userId = data.session.user.id;
+
+          // Check if the current user has a restaurant
           const { data: restaurants, error: restaurantError } = await supabase
             .from('restaurants')
             .select('id')
+            .eq('user_id', userId) // Filter by user ID
             .limit(1);
 
           if (restaurantError) throw restaurantError;
 
-          // Redirect based on whether restaurant exists
+          // Redirect based on whether restaurant exists for this user
           if (restaurants && restaurants.length > 0) {
             router.push('/dashboard');
           } else {
