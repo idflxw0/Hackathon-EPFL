@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface FormData {
   email: string;
@@ -25,12 +27,23 @@ interface FormData {
 const SignIn = () => {
   const router = useRouter();
   const { toast } = useToast();
+  const supabase = createClientComponentClient();
+  const searchParams = useSearchParams();
+  const registered = searchParams.get('registered');
+
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (registered === 'true') {
+      setSuccessMessage('Account created successfully! Please sign in.');
+    }
+  }, [registered]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +51,15 @@ const SignIn = () => {
     setError(null);
 
     try {
-      // TODO: Implement authentication logic
-      console.log('Sign in attempt with:', formData);
+      // Sign in with Supabase Auth
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (signInError) throw signInError;
+
 
       toast({
         title: 'Success!',
@@ -61,6 +78,19 @@ const SignIn = () => {
         variant: 'destructive',
         duration: 3000,
       });
+      // Handle successful sign in
+      router.push('/dashboard'); // Redirect to dashboard or home page
+    } catch (err: any) {
+      console.error('Sign in error:', err);
+
+      // Handle specific error cases
+      if (err.message.includes('Invalid login credentials')) {
+        setError('Invalid email or password');
+      } else if (err.message.includes('Email not confirmed')) {
+        setError('Please confirm your email address before signing in');
+      } else {
+        setError(err.message || 'Failed to sign in. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -103,6 +133,13 @@ const SignIn = () => {
               Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
+
+          {successMessage && (
+            <div className="mx-6 mb-2 p-3 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-sm rounded">
+              {successMessage}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-6">
               <motion.div
@@ -125,6 +162,7 @@ const SignIn = () => {
                   disabled={isLoading}
                   className="transition-shadow duration-200 focus:shadow-md"
                 />
+
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -135,6 +173,16 @@ const SignIn = () => {
                 <Label htmlFor="password" className="text-sm font-medium">
                   Password
                 </Label>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                    Forgot password?
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   name="password"
