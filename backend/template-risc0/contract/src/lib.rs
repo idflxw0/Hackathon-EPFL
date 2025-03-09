@@ -110,10 +110,9 @@ impl HyleContract for RestaurantReview {
                 restaurant_id,
                 client,
                 review_text,
-                zk_proof,
                 timestamp,
             } => {
-                self.submit_review(restaurant_id, client, review_text, zk_proof, timestamp)?;
+                self.submit_review(restaurant_id, client, review_text, timestamp)?;
             }
         }
 

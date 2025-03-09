@@ -108,11 +108,12 @@ async fn main() -> Result<()> {
             let proof_tx_hash = client.send_tx_proof(&proof_tx).await.unwrap();
             println!("✅ Transaction de preuve envoyée. Hash : {}", proof_tx_hash);
         }
+        
+        
         Commands::SubmitReview {
             restaurant_id,
             client_name, // Utilisation du nouveau nom
             review_text,
-            zk_proof,
             timestamp,
         } => {
             // Construire l'action pour soumettre une review
@@ -120,7 +121,6 @@ async fn main() -> Result<()> {
                 restaurant_id,
                 client: client_name, // Utilisation du nouveau nom
                 review_text,
-                zk_proof: zk_proof.into_bytes(),
                 timestamp,
             };
 
